@@ -13,7 +13,7 @@ NAMES_URL = 'http://www.ssa.gov/oact/babynames/names.zip'
 def load(path=None):
     datafile = 'names.pickle'
     if path:
-        datafile = path + 'names.pickle'
+        datafile = os.path.join(path, datafile)
     if os.path.exists(datafile):
         return pickle.load(open(datafile, 'rb'))
 
