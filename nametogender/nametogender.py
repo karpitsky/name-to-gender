@@ -4,8 +4,8 @@ from helper import load
 
 
 class NameToGender:
-    def __init__(self):
-        self.names = load()
+    def __init__(self, path=None):
+        self.names = load(path=path)
 
     def name_to_gender(self, name):
         name = name.lower()
