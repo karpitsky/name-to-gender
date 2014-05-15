@@ -7,15 +7,15 @@ import urllib2
 import StringIO
 import zipfile
 
-DATAFILE = 'names.pickle'
 NAMES_URL = 'http://www.ssa.gov/oact/babynames/names.zip'
 
 
 def load(path=None):
+    datafile = 'names.pickle'
     if path:
-        DATAFILE = path + DATAFILE
-    if os.path.exists(DATAFILE):
-        return pickle.load(open(DATAFILE, 'rb'))
+        datafile = path + 'names.pickle'
+    if os.path.exists(datafile):
+        return pickle.load(open(datafile, 'rb'))
 
     _temp_file = StringIO.StringIO()
     _temp_file.write(urllib2.urlopen(NAMES_URL).read())
@@ -52,7 +52,7 @@ def load(path=None):
             value['probability'] = float(value['F']) / count
             value['gender'] = 'F'
 
-    _datafile = open(DATAFILE, 'wb')
+    _datafile = open(datafile, 'wb')
     pickle.dump(names, _datafile, -1)
     _datafile.close()
     return names
