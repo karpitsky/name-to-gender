@@ -11,7 +11,9 @@ DATAFILE = 'names.pickle'
 NAMES_URL = 'http://www.ssa.gov/oact/babynames/names.zip'
 
 
-def load():
+def load(path=None):
+    if path:
+        DATAFILE = path + DATAFILE
     if os.path.exists(DATAFILE):
         return pickle.load(open(DATAFILE, 'rb'))
 
