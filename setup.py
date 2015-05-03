@@ -14,6 +14,7 @@ setup(
     author='Michael Karpitsky',
     author_email='michael.karpitsky@gmail.com',
     license='BSD',
+    install_requires=['six'],
     url='https://github.com/karpitsky/name-to-gender',
     keywords=['Gender', 'Python'],
     packages=['nametogender'],
