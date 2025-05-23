@@ -18,4 +18,5 @@ setup(
     url='https://github.com/karpitsky/name-to-gender',
     keywords=['Gender', 'Python'],
     packages=['nametogender'],
+    package_data={'nametogender': ['names.pickle']},
 )

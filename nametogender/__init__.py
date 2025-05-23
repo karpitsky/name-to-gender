@@ -13,9 +13,17 @@ NAMES_URL = 'http://www.ssa.gov/oact/babynames/names.zip'
 
 
 def load(path=None):
-    datafile = 'names.pickle'
     if path:
-        datafile = os.path.join(path, datafile)
+        datafile = os.path.join(path, 'names.pickle')
+    else:
+        # First try to load from package directory (for installed package)
+        package_dir = os.path.dirname(__file__)
+        datafile = os.path.join(package_dir, 'names.pickle')
+        
+        # If not found in package, try current directory (for development)
+        if not os.path.exists(datafile):
+            datafile = 'names.pickle'
+    
     if os.path.exists(datafile):
         return pickle.load(open(datafile, 'rb'))
 
@@ -55,7 +63,18 @@ def load(path=None):
             value['probability'] = float(value['F']) / count
             value['gender'] = 'F'
 
-    _datafile = open(datafile, 'wb')
+    # Save to a writable location if we had to download the data
+    if not path:
+        # Use current directory for development, or user home for installed package
+        if os.path.dirname(__file__) in datafile:
+            # We're trying to write to package dir, use current dir instead
+            save_path = 'names.pickle'
+        else:
+            save_path = datafile
+    else:
+        save_path = datafile
+    
+    _datafile = open(save_path, 'wb')
     pickle.dump(names, _datafile, -1)
     _datafile.close()
     return names
