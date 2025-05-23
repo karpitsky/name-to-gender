@@ -6,5 +6,4 @@ dist/*
 *.egg
 *.egg-info
 src/*.egg-info/*
-names.pickle
 names.zip
