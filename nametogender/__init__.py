@@ -1,83 +1,113 @@
-# encoding: utf-8
-from __future__ import absolute_import
 import os
-import csv
-import pickle
-import zipfile
-from io import BytesIO, TextIOWrapper
-
-from six.moves import urllib
 
 
-NAMES_URL = 'http://www.ssa.gov/oact/babynames/names.zip'
+DATA_FILE = 'names.csv'
+# NAMES_URL = 'https://www.ssa.gov/oact/babynames/names.zip'
+
+_GG_GENDER_MAP = {
+    'M': 'M',
+    '1M': 'M',
+    '?M': 'M',
+    'F': 'F',
+    '1F': 'F',
+    '?F': 'F',
+}
+
+
+def _parse_ssa(path):
+    import csv
+    import zipfile
+    from io import TextIOWrapper
+
+    zf = zipfile.ZipFile(path, 'r')
+    counts = {}
+
+    for filename in zf.namelist():
+        if '.txt' not in filename:
+            continue
+        with zf.open(filename) as raw:
+            for row in csv.reader(TextIOWrapper(raw), delimiter=','):
+                if len(row) < 3:
+                    continue
+                name = row[0].lower()
+                gender = row[1]
+                count = int(row[2])
+                if name not in counts:
+                    counts[name] = [0, 0]
+                if gender == 'M':
+                    counts[name][0] += count
+                else:
+                    counts[name][1] += count
+
+    for name, (m, f) in counts.items():
+        counts[name] = 'M' if m > f else 'F'
+
+    return counts
+
+
+def _parse_gender_guesser(path):
+    names = {}
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line[0] in '#=':
+                continue
+            parts = line.split()
+            gender = _GG_GENDER_MAP.get(parts[0])
+            if not gender:
+                continue
+            name = parts[1].lower()
+            if '+' in name:
+                variants = [name.replace('+', r) for r in ['', ' ', '-']]
+            else:
+                variants = [name]
+            for n in variants:
+                if n not in names:
+                    names[n] = gender
+    return names
+
+
+_PACKAGE_DIR = os.path.dirname(__file__)
+
+
+def _build_and_save(datafile):
+    package_dir = _PACKAGE_DIR
+
+    # SSA data (primary, has counts)
+    ssa_zip = os.path.join(package_dir, 'data', 'names.zip')
+    names = _parse_ssa(ssa_zip)
+
+    # Gender-guesser data (international names, fills gaps)
+    gg_file = os.path.join(package_dir, 'data', 'nam_dict.txt')
+    gg_names = _parse_gender_guesser(gg_file)
+    for name, gender in gg_names.items():
+        if name not in names:
+            names[name] = gender
+
+    with open(datafile, 'w') as f:
+        for name, gender in sorted(names.items()):
+            f.write(f'{name},{gender}\n')
+
+    return names
 
 
 def load(path=None):
     if path:
-        datafile = os.path.join(path, 'names.pickle')
+        datafile = os.path.join(path, DATA_FILE)
     else:
-        # First try to load from package directory (for installed package)
-        package_dir = os.path.dirname(__file__)
-        datafile = os.path.join(package_dir, 'names.pickle')
-        
-        # If not found in package, try current directory (for development)
-        if not os.path.exists(datafile):
-            datafile = 'names.pickle'
-    
-    if os.path.exists(datafile):
-        return pickle.load(open(datafile, 'rb'))
+        datafile = os.path.join(_PACKAGE_DIR, DATA_FILE)
 
-    _temp_file = BytesIO()
-    _temp_file.write(urllib.request.urlopen(NAMES_URL).read())
+    try:
+        names = {}
+        with open(datafile) as f:
+            for line in f:
+                name, gender = line.rstrip('\n').split(',')
+                names[name] = gender
+        return names
+    except FileNotFoundError:
+        pass
 
-    _zip_file = zipfile.ZipFile(_temp_file, 'r')
-    names = dict()
-
-    for filename in _zip_file.namelist():
-        if '.txt' not in filename:
-            continue
-
-        _file = _zip_file.open(filename)
-        _file = TextIOWrapper(_file)
-        rows = csv.reader(_file, delimiter=',')
-
-        for row in rows:
-            if len(row) < 3:
-                continue
-            name = row[0].lower()
-            gender = row[1]
-            count = int(row[2])
-
-            if name not in names:
-                names[name] = dict(M=0, F=0)
-            names[name][gender] = names[name][gender] + count
-
-        _file.close()
-
-    for key, value in names.items():
-        count = value['M'] + value['F']
-        if value['M'] > value['F']:
-            value['probability'] = float(value['M']) / count
-            value['gender'] = 'M'
-        else:
-            value['probability'] = float(value['F']) / count
-            value['gender'] = 'F'
-
-    # Save to a writable location if we had to download the data
-    if not path:
-        # Use current directory for development, or user home for installed package
-        if os.path.dirname(__file__) in datafile:
-            # We're trying to write to package dir, use current dir instead
-            save_path = 'names.pickle'
-        else:
-            save_path = datafile
-    else:
-        save_path = datafile
-    
-    _datafile = open(save_path, 'wb')
-    pickle.dump(names, _datafile, -1)
-    _datafile.close()
-    return names
+    return _build_and_save(datafile)
 
 
 class NameToGender:
@@ -86,11 +116,4 @@ class NameToGender:
 
     def name_to_gender(self, name):
         name = name.lower()
-        if name not in self.names:
-            return dict(name=name, gender=None)
-
-        return dict(
-            name=name,
-            gender=self.names[name]['gender'],
-            probability=self.names[name]['probability']
-        )
+        return {'name': name, 'gender': self.names.get(name)}
